@@ -3,11 +3,11 @@
     <title>Robot Controller</title>
     <script type="text/javascript" src="{{ url_for('static', filename='lib/jquery-3.4.1.min.js') }}"></script>
     <script type="text/javascript" src="{{ url_for('static', filename='lib/socket.io.min.js') }}"></script>
-    <script type="text/javascript" src="{{ url_for('static', filename='lib/svg.js') }}"></script>
+    <script type="text/javascript" src="{{ url_for('static', filename='lib/svg.min.js') }}"></script>
     <link rel="stylesheet" type="text/css" href="{{ url_for('static', filename='css/main.css') }}" />
   </head>
   <body>
-    <img id="bkpCam1" src="{{ url_for('bkpCam1') }}">
+    <img id="bkpCam1" src="/videoFeed/bkpCam1">
     <div id="logDisplay"></div>
   </body>
   <script type="text/javascript">
