@@ -61,7 +61,8 @@ settings = {
 execute = {
     "streamVideo": True,
     "receiveData": True,
-    "sendData": True
+    "sendData": True,
+    "webServer": True
 }
 
 # Queues to send data to specific Threads
@@ -86,7 +87,8 @@ tags = {
         },
     "motorData": [sendDataQueue],
     "log": [airQueue],
-    "stateChange": [airQueue,recvDataQueue,sendDataQueue,recvImageQueue,mainQueue]
+    "stateChange": [airQueue,recvDataQueue,sendDataQueue,recvImageQueue,mainQueue],
+    "settingChange": [mainQueue, sendDataQueue]
 }
 
 '''
@@ -107,6 +109,7 @@ def stopAllThreads(callback=0):
     execute['streamVideo'] = False
     execute['receiveData'] = False
     execute['sendData'] = False
+    execute['webServer'] = False
     '''
     logger.debug("Stopping Threads")
     '''
@@ -236,9 +239,9 @@ def startAirNode(debug=False):
 
     socketio = SocketIO(app)
 
-    @app.route('/')
-    def index():
-        return render_template('mid_sensors.html')
+    @app.route('/copilot')
+    def copilot():
+        return render_template('copilot.html')
 
     def messageReceived(methods=['GET', 'POST']):
         print('message was received!!!')
@@ -248,6 +251,11 @@ def startAirNode(debug=False):
         while not airQueue.empty():
             tosend = airQueue.get()
             socketio.emit("updateAirNode", tosend)
+    
+    @socketio.on('sendUpdate')
+    def getAir(recv, methods=["GET","POST"]):
+        handlePacket(recv)
+        
 
     def camGen(camName):
         myCamStream = airCamQueues[camName]
@@ -311,15 +319,15 @@ if( __name__ == "__main__"):
     sendDataThread = threading.Thread(target=sendData, args=(verbose[0],))
     airNodeThread = threading.Thread(target=startAirNode, args=(verbose[0],), daemon=True)
     vidStreamThread.start()
-    #recvDataThread.start()
-    #sendDataThread.start()
+    recvDataThread.start()
+    sendDataThread.start()
     airNodeThread.start()
 
     # Begin the Shutdown
     while execute['streamVideo'] or execute['receiveData'] or execute['sendData']:
         time.sleep(0.1)
-    #recvDataThread.join()
-    #sendDataThread.join()
+    recvDataThread.join()
+    sendDataThread.join()
     vidStreamThread.join()
     airNodeThread.join()
     '''
