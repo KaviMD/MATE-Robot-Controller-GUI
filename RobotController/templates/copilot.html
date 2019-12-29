@@ -336,9 +336,6 @@
       renderer.setSize(w, h);
       container.appendChild(renderer.domElement);
 
-      renderer.shadowMapEnabled = true;
-      renderer.shadowMapType = THREE.PCFSoftShadowMap;
-
       camera = new THREE.PerspectiveCamera(70, w / h, 1, 1000);
 
       hlight = new THREE.AmbientLight(0x404040, 2);
@@ -360,8 +357,6 @@
       var fullRobotBody;
       var arrowLoc;
       loader.load("{{ url_for('static', filename='assets/Full-Robot-Body.gltf') }}", function (gltf) {
-        gltf.scene.recieveShadow = true;
-        gltf.scene.castShadow = true;
         scene.add(gltf.scene);
         fullRobotBody = gltf;
         arrowLoc = 20;
@@ -378,15 +373,15 @@
 
       function normalizeVector(vec) {
         var magnitude = vectorSize(vec);
+        var norm = []
         for (i = 0; i < vec.length; i++) {
-          vec[i] = vec[i] / magnitude;
+          norm.push(vec[i] / magnitude);
         }
-        return vec;
+        return norm;
       }
 
       function update3D(state) {
         if (sceneLoaded) {
-
           velVec = [state.vel.x, state.vel.y, state.vel.z];
           velNorm = normalizeVector(velVec);
 
@@ -396,11 +391,10 @@
           fullRobotBody.scene.children[arrowLoc].rotation.z = Math.atan(velNorm[2]);
 
           // Scale of Arrow
-          fullRobotBody.scene.children[arrowLoc].scale.y = (vectorSize(velVec) / 1.2) + 1.5;
+          fullRobotBody.scene.children[arrowLoc].scale.y = (vectorSize(velVec)) / 6 + 0.5;
 
           // Orientation of Camera
-          //console.log(state.gyro);
-          camera.rotation.x = state.gyro.y * DEGREES_TO_RADIANS;
+          camera.rotation.x = -state.gyro.y * DEGREES_TO_RADIANS;
           camera.rotation.y = state.gyro.z * DEGREES_TO_RADIANS;
           camera.rotation.z = state.gyro.x * DEGREES_TO_RADIANS;
           camera.position.x = 0;
@@ -413,6 +407,7 @@
       }
     </script>
     <script id="robotDiagram_Script">
+      var numLength = 2;
 
       var canvas = document.getElementById('robotDiagram');
       var ctx = canvas.getContext('2d');
@@ -421,10 +416,10 @@
       chassis.src = "{{ url_for('static', filename='assets/robotDiagram/robotDiagram-Chassis.svg') }}";
 
       var sideThruster = new Image();
-      sideThruster.src = "{{ url_for('static', filename='assets/robotDiagram/robotDiagram-sideThruster.svg') }}";
+      sideThruster.src = "{{ url_for('static', filename='assets/robotDiagram/robotDiagram-SideThruster.svg') }}";
 
       var sideThrusterPower = new Image();
-      sideThrusterPower.src = "{{ url_for('static', filename='assets/robotDiagram/robotDiagram-sideThrusterPower.svg') }}";
+      sideThrusterPower.src = "{{ url_for('static', filename='assets/robotDiagram/robotDiagram-SideThrusterPower.svg') }}";
 
       var upThruster = new Image();
       upThruster.src = "{{ url_for('static', filename='assets/robotDiagram/robotDiagram-UpThruster.svg') }}";
@@ -518,7 +513,7 @@
           drawImg(downThruster, xLoc + x, yLoc + y, r, s, v, h);
         }
 
-        drawText(speed * 100.0, xLoc + x, yLoc + (y * 1.51), "Ubuntu-Title", 40, "#D1D1D1", "center");
+        drawText(Math.trunc(speed * 100.0), xLoc + x, yLoc + (y * 1.51), "Ubuntu-Title", 40, "#D1D1D1", "center");
       }
 
       function drawSideThruster(loc, speed, xLoc, yLoc) {
@@ -577,14 +572,14 @@
           drawImg(sideThrusterPower, x + xThrust, y + yThrust, rThrust, s, vThrust, hThrust);
         }
         drawImg(sideThruster, x, y, r, s, v, h);
-        drawText(speed * 100.0, x + (xThrust * 9), y + (yThrust * 9), "Ubuntu-Title", 40, "#D1D1D1", "center");
+        drawText(Math.trunc(speed * 100.0), x + (xThrust * 9), y + (yThrust * 9), "Ubuntu-Title", 40, "#D1D1D1", "center");
       }
 
       function drawDevice(devName, working, xLoc, yLoc) {
         x = xLoc;
         y = yLoc;
         s = 1;
-        r = 0
+        r = 0;
         image = new Image();
         switch (devName) {
           case "ESC":
@@ -627,7 +622,15 @@
         ctx.filter = "none";
       }
 
-      function updateDiagram() {
+      function remapArray(arr, oldMin, oldMax, newMin, newMax) {
+        mapped = [];
+        for (i = 0; i < arr.length; i++) {
+          mapped.push(newMin + (newMax - newMin) * (arr[i] - oldMin) / (oldMax - oldMin));
+        }
+        return mapped;
+      }
+
+      function updateDiagram(speeds) {
         clearCanvas(true);
 
         scaleAmnt = 1;
@@ -636,15 +639,17 @@
         xLoc = ((canvas.width / 2) / scaleAmnt); // * 0.7;
         yLoc = (canvas.height / 2) / scaleAmnt;
 
-        drawSideThruster("TL", 0, xLoc, yLoc);
-        drawSideThruster("TR", 0, xLoc, yLoc);
-        drawSideThruster("BL", 0, xLoc, yLoc);
-        drawSideThruster("BR", 0, xLoc, yLoc);
+        fixedSpeeds = remapArray(speeds, 0.0, 180.0, -1.0, 1.0);
 
-        drawTopThruster("TL", 0, xLoc, yLoc);
-        drawTopThruster("TR", 0, xLoc, yLoc);
-        drawTopThruster("BL", 0, xLoc, yLoc);
-        drawTopThruster("BR", 0, xLoc, yLoc);
+        drawSideThruster("TL", fixedSpeeds[2], xLoc, yLoc);
+        drawSideThruster("TR", fixedSpeeds[0], xLoc, yLoc);
+        drawSideThruster("BL", fixedSpeeds[3], xLoc, yLoc);
+        drawSideThruster("BR", fixedSpeeds[1], xLoc, yLoc);
+
+        drawTopThruster("TL", fixedSpeeds[6], xLoc, yLoc);
+        drawTopThruster("TR", fixedSpeeds[4], xLoc, yLoc);
+        drawTopThruster("BL", fixedSpeeds[7], xLoc, yLoc);
+        drawTopThruster("BR", fixedSpeeds[5], xLoc, yLoc);
 
         drawImg(chassis, xLoc, yLoc, 0, 1.5);
 
@@ -653,10 +658,7 @@
         drawDevice("IMU", true, xLoc, yLoc);
         drawDevice("PWM", true, xLoc, yLoc);
         drawDevice("RasPi", true, xLoc, yLoc);
-
-        requestAnimationFrame(updateDiagram);
       }
-      requestAnimationFrame(updateDiagram);
     </script>
     <script id="realtimeGraphs_Script">
       var layout = {
@@ -733,7 +735,8 @@
           name: "Amps"
         }
       ];
-      Plotly.plot('amperageGraph', amperageData, layout, settings);
+      Plotly.plot('amperageGraph', amperageData, JSON.parse(JSON.stringify(layout)), settings);
+      Plotly.relayout('amperageGraph', {yaxis: {range: [0, 30]}});
 
       var voltageData = [
         {
@@ -747,7 +750,8 @@
           name: "Volts"
         }
       ];
-      Plotly.plot('voltageGraph', voltageData, layout, settings);
+      Plotly.plot('voltageGraph', voltageData, JSON.parse(JSON.stringify(layout)), settings);
+      Plotly.relayout('voltageGraph', {yaxis: {range: [0, 15]}});
 
       var speedData = [
         {
@@ -761,7 +765,8 @@
           name: "Speed"
         }
       ];
-      Plotly.plot('speedGraph', speedData, layout, settings);
+      Plotly.plot('speedGraph', speedData, JSON.parse(JSON.stringify(layout)), settings);
+      Plotly.relayout('speedGraph', {yaxis: {range: [0, 30]}});
 
       var temperatureData = [
         {
@@ -775,7 +780,8 @@
           name: "Temp"
         }
       ];
-      Plotly.plot('temperatureGraph', temperatureData, layout, settings);
+      Plotly.plot('temperatureGraph', temperatureData, JSON.parse(JSON.stringify(layout)), settings);
+      Plotly.relayout('temperatureGraph', {yaxis: {range: [10, 30]}});
 
       var cnt = 1;
       var maxCnt = 50;
@@ -866,6 +872,8 @@
         "temp": 0
       };
 
+      var drivetrainSpeeds = new Array(8).fill(0);
+
       function handleUpdates(parsed) {
         switch (parsed.tag) {
           case "log":
@@ -873,6 +881,11 @@
             break;
           case "sensor":
             sensorData = parsed.data;
+            break;
+          case "motorData":
+            if (parsed.metadata == "drivetrain") {
+              drivetrainSpeeds = parsed.data;
+            }
             break;
         }
       }
@@ -939,12 +952,14 @@
         update3D(sensorData.imu);
         updateAttitude(sensorData.imu.gyro);
         updateGraphs(sensorData);
+        updateDiagram(drivetrainSpeeds);
+
         requestAnimationFrame(updateSite);
       }
 
       requestAnimationFrame(updateSite);
 
-      $('#imu-straighten').click(function() {
+      $('#imu-straighten').click(function () {
         var packet = {
           "tag": "settingChange",
           "data": sensorData.imu.gyro,
